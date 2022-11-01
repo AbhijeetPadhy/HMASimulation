@@ -8,8 +8,7 @@ public class Cache {
     int hitTime = 1;
     long get_hit(){return hit_counter;}
     long get_miss(){return miss_counter;}
-    Cache(){}
-    void CacheInit( int sets, int associativity, int LineSize ) {
+    Cache(int sets, int associativity, int LineSize, int hitTime, int missTime){
         int i, j;
         TAG = new int[sets][];
         for(i = 0; i < sets; i++)
@@ -18,6 +17,8 @@ public class Cache {
             for(j=0;j<associativity;j++) TAG[i][j]=-1;
         asso = associativity; set = sets; LS = LineSize;
         hit_counter=miss_counter=0;
+        this.hitTime = hitTime;
+        this.missTime = missTime;
     }
 
     boolean Access(long block) {
