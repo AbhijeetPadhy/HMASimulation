@@ -23,7 +23,7 @@ public class Simulation {
     static boolean SPMState;
     static boolean ENABLED = true;
     static boolean DISABLED = false;
-    static String MODEL = "mcm";
+    static String MODEL = "bubble_sort";
 
     static void load_blocks(String filename, boolean operation){
         try {
@@ -142,15 +142,38 @@ public class Simulation {
         PCMStoreCount = 0;
     }
     private static void configureMemory(boolean PCMState, boolean SPMState){
-        PCMobj = new PhaseChangeMemory(8192);
-        SPMobj = new ScratchpadMemory((16));
-        L1 = new Cache(128, 4, 64, 1, 0);
-        L2 = new Cache(512, 8, 64, 15, 40);
+        int sets_L1 = 64; // 128
+        int asso_L1 = 4;  // 4
+        int sets_L2 = 256;// 512
+        int asso_L2 = 8;  // 8
+        int PCM_size = 8192;
+        int SPM_size = 16;
+
+        System.out.println("Memory Configurations");
+        System.out.println("---------------------");
+        System.out.println("L1 Cache: " + sets_L1 + "x" + asso_L1 + " = " + (sets_L1 * asso_L1) + " blocks");
+        System.out.println("L2 Cache: " + sets_L2 + "x" + asso_L2 + " = " + (sets_L2 * asso_L2) + " blocks");
+        System.out.println("Scratchpad Memory: " + ((SPMState)? SPM_size : 0) + " blocks");
+        System.out.println("Phase Change Memory: " + ((PCMState)? PCM_size : 0) + " blocks");
+        System.out.println();
+
+        PCMobj = new PhaseChangeMemory(PCM_size);
+        SPMobj = new ScratchpadMemory(SPM_size);
+
+
+        L1 = new Cache(sets_L1, asso_L1, 64, 1, 0);
+        L2 = new Cache(sets_L2, asso_L2, 64, 15, 40);
         Simulation.PCMState = PCMState;
         Simulation.SPMState = SPMState;
     }
     public static void main(String[] args) {
-        System.out.println("Running for Model: "+MODEL + " with a threshold of " + THRESHOLD);
+        System.out.println("Profile Configurations");
+        System.out.println("----------------------");
+        System.out.println("Model: " + MODEL);
+        System.out.println("Threshold: " + THRESHOLD );
+        System.out.println("Blocks having number of load operations greater than " + (THRESHOLD*100) + " % are selected to be placed in PCM.");
+        System.out.println();
+
         load_blocks_map = new HashMap<>();
         store_blocks_map = new HashMap<>();
         allops_blocks_map = new HashMap<>();
