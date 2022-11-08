@@ -1,4 +1,5 @@
 import java.lang.*;
+import java.sql.SQLOutput;
 import java.util.*;
 import java.io.*;
 
@@ -22,6 +23,7 @@ public class Simulation {
     static boolean SPMState;
     static boolean ENABLED = true;
     static boolean DISABLED = false;
+    static String MODEL = "mcm";
 
     static void load_blocks(String filename, boolean operation){
         try {
@@ -142,36 +144,47 @@ public class Simulation {
     private static void configureMemory(boolean PCMState, boolean SPMState){
         PCMobj = new PhaseChangeMemory(8192);
         SPMobj = new ScratchpadMemory((16));
-        L1 = new Cache(128, 4, 64, 2, 20);
-        L2 = new Cache(512, 8, 64, 4, 40);
+        L1 = new Cache(128, 4, 64, 1, 0);
+        L2 = new Cache(512, 8, 64, 15, 40);
         Simulation.PCMState = PCMState;
         Simulation.SPMState = SPMState;
     }
     public static void main(String[] args) {
+        System.out.println("Running for Model: "+MODEL + " with a threshold of " + THRESHOLD);
         load_blocks_map = new HashMap<>();
         store_blocks_map = new HashMap<>();
         allops_blocks_map = new HashMap<>();
-        load_blocks("loads.txt", LOAD);
-        load_blocks("stores.txt", STORE);
+        load_blocks("input_files/"+MODEL+"/loads"+"_"+MODEL+".txt", LOAD);
+        load_blocks("input_files/"+MODEL+"/stores"+"_"+MODEL+".txt", STORE);
         find_block_freq();
         configureMemory(ENABLED, ENABLED);
         allocate(true, true);
 
-        String filename = "output.txt";
+        String filename = "input_files/"+MODEL+"/output"+"_"+MODEL+".txt";
         System.out.println("\nTest Case 1: PCM SPM Both Enabled");
         System.out.println("------------------------------------");
-        System.out.println("Total time required is: " + readBlocks(filename));
+        long time1 = readBlocks(filename);
+        System.out.println("Total time required is: " + time1);
         System.out.println("PCMCount: " + PCMCount + " SPMCount: " + SPMCount + " CacheCount: " + CacheCount);
         System.out.println("PCMLoadCount: " + PCMLoadCount);
         System.out.println("PCMStoreCount: " + PCMStoreCount);
+
+        //for(long a : PCMobj.contents)
+            //System.out.println(a);
 
         clear();
         configureMemory(DISABLED, DISABLED);
         System.out.println("\nTest Case 2: PCM SPM Both Disabled");
         System.out.println("--------------------------------------");
-        System.out.println("Total time required is: " + readBlocks(filename));
+        long time2 = readBlocks(filename);
+        System.out.println("Total time required is: " + time2);
         System.out.println("PCMCount: " + PCMCount + " SPMCount: " + SPMCount + " CacheCount: " + CacheCount);
         System.out.println("PCMLoadCount: " + PCMLoadCount);
         System.out.println("PCMStoreCount: " + PCMStoreCount);
+
+        System.out.println("\nComparision");
+        System.out.println("--------------------------------------");
+        double percentage= ((double)time2-time1)*100/time2;
+        System.out.printf("Our Model is %.2f %% better than the original", percentage);
     }
 }

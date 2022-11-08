@@ -3,8 +3,8 @@ import java.util.*;
 public class PhaseChangeMemory {
      HashSet<Long> contents;
     private long size;
-    private int storeTime = 8;
-    private int loadTime = 4;
+    private int storeTime = 10;
+    private int loadTime = 2;
     private boolean LOAD = false;
     private boolean STORE = true;
     PhaseChangeMemory(long size){
