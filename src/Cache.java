@@ -4,8 +4,12 @@ public class Cache {
     int TAG[][];
     boolean HIT = true;
     boolean MISS = false;
-    int missTime = 40;
-    int hitTime = 1;
+    int missTime;
+    int hitTime;
+    long missEnergy;
+    long hitEnergy;
+    long energyFactor = 10000000;
+    final int staticPowerPerByte = 10;
     long get_hit(){return hit_counter;}
     long get_miss(){return miss_counter;}
     Cache(int sets, int associativity, int LineSize, int hitTime, int missTime){
@@ -19,6 +23,8 @@ public class Cache {
         hit_counter=miss_counter=0;
         this.hitTime = hitTime;
         this.missTime = missTime;
+        this.hitEnergy = hitTime * energyFactor;
+        this.missEnergy = missTime * energyFactor;
     }
 
     boolean Access(long block) {
@@ -42,5 +48,11 @@ public class Cache {
         if(Access(block))
             return hitTime;
         return missTime;
+    }
+    long getSizeInBytes(){
+        return set * asso * LS;
+    }
+    long staticEnergy(long time){
+        return time * staticPowerPerByte * getSizeInBytes();
     }
 }

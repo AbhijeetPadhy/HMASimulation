@@ -13,7 +13,7 @@ public class Simulation {
     static ScratchpadMemory SPMobj;
     static Cache L1;
     static Cache L2;
-    static double THRESHOLD = 0.8;
+    static double THRESHOLD = 0.7;
     static int PCMCount = 0;
     static int SPMCount = 0;
     static int CacheCount = 0;
@@ -23,7 +23,7 @@ public class Simulation {
     static boolean SPMState;
     static boolean ENABLED = true;
     static boolean DISABLED = false;
-    static String MODEL = "bubble_sort";
+    static String MODEL = "lbm";
 
     static void load_blocks(String filename, boolean operation){
         try {
@@ -86,34 +86,46 @@ public class Simulation {
         System.out.println("SPM Fill Count: " + SPMobj.fillCount());
         System.out.println("Total Number of Blocks: " + list.size());
     }
-    private static int blockAccess(long block, boolean operation){
+    private static long[] blockAccess(long block, boolean operation){
+        long energy = 0, time = 0;
         if(PCMState == ENABLED && PCMobj.contains(block)) {
             PCMCount++;
             if(operation == LOAD)
                 PCMLoadCount++;
             else
                 PCMStoreCount++;
-            return PCMobj.getTimeToAccess(block, operation);
+            time = PCMobj.getTimeToAccess(block, operation);
+            energy = PCMobj.getEnergyToAccess(block, operation);
+            return new long[]{time, energy};
         }else if(SPMState == ENABLED && SPMobj.contains(block)) {
             SPMCount++;
-            return SPMobj.getTimeToAccess(block);
+            time = SPMobj.getTimeToAccess(block);
+            energy = SPMobj.getEnergyToAccess(block);
+            return new long[]{time, energy};
         }
         CacheCount++;
         boolean hit = L1.Access(block);
-        int time = 0;
         if(hit){
-            return L1.hitTime;
-        }else
+            time = L1.hitTime;
+            energy = L1.hitEnergy;
+            return new long[]{time, energy};
+        }else {
             time += L1.missTime;
+            energy += L1.missEnergy;
+        }
         hit = L2.Access(block);
-        if(hit)
+        if(hit) {
             time += L2.hitTime;
-        else
+            energy += L2.hitEnergy;
+        }else {
             time += L2.missTime;
-        return time;
+            energy += L2.missEnergy;
+        }
+        return new long[]{time, energy};
     }
-    private static long readBlocks(String filename){
+    private static long[] readBlocks(String filename){
         long time = 0;
+        long energy = 0;
         try {
             File myObj = new File(filename);
             Scanner myReader = new Scanner(myObj);
@@ -122,14 +134,16 @@ public class Simulation {
                 char op = data.split(" ")[0].charAt(0);
                 boolean operation = (op == 'L')? LOAD : STORE;
                 long block = Long.parseLong(data.split(" ")[1].substring(2), 16)/64;
-                time += blockAccess(block, operation);
+                long[] access = blockAccess(block, operation);
+                time += access[0];
+                energy += access[1];
             }
             myReader.close();
         } catch (FileNotFoundException e) {
             System.out.println("An error occurred.");
             e.printStackTrace();
         }
-        return time;
+        return new long[] {time, energy};
     }
     private static void clear(){
         load_blocks_map.clear();
@@ -166,6 +180,15 @@ public class Simulation {
         Simulation.PCMState = PCMState;
         Simulation.SPMState = SPMState;
     }
+    private static long getStaticEnergy(long time){
+        long power = 0;
+        if(PCMState == ENABLED)
+            power += PCMobj.staticEnergy(time);
+        if(SPMState == ENABLED)
+            power += SPMobj.staticEnergy(time);
+        power += L1.staticEnergy(time) + L2.staticEnergy(time);
+        return power;
+    }
     public static void main(String[] args) {
         System.out.println("Profile Configurations");
         System.out.println("----------------------");
@@ -180,34 +203,56 @@ public class Simulation {
         load_blocks("input_files/"+MODEL+"/loads"+"_"+MODEL+".txt", LOAD);
         load_blocks("input_files/"+MODEL+"/stores"+"_"+MODEL+".txt", STORE);
         find_block_freq();
-        configureMemory(ENABLED, ENABLED);
-        allocate(true, true);
 
-        String filename = "input_files/"+MODEL+"/output"+"_"+MODEL+".txt";
         System.out.println("\nTest Case 1: PCM SPM Both Enabled");
         System.out.println("------------------------------------");
-        long time1 = readBlocks(filename);
+        configureMemory(ENABLED, ENABLED);
+        allocate(true, true);
+        String filename = "input_files/"+MODEL+"/output"+"_"+MODEL+".txt";
+        long[] access1 = readBlocks(filename);
+        long time1 = access1[0];
+        long energy1 = access1[1];
+        long staticEnergy1 = getStaticEnergy(time1);
+        long totalEnergy1 = energy1 + staticEnergy1;
+
+        System.out.println("\nMemory Simulation Statistics");
+        System.out.println("------------------------------");
         System.out.println("Total time required is: " + time1);
         System.out.println("PCMCount: " + PCMCount + " SPMCount: " + SPMCount + " CacheCount: " + CacheCount);
         System.out.println("PCMLoadCount: " + PCMLoadCount);
         System.out.println("PCMStoreCount: " + PCMStoreCount);
 
-        //for(long a : PCMobj.contents)
-            //System.out.println(a);
+        System.out.println("\nTotal energy required is: " + totalEnergy1);
+        System.out.println("Static energy required is: " + staticEnergy1);
+        System.out.println("Load/Store energy required is: " + energy1);
 
-        clear();
-        configureMemory(DISABLED, DISABLED);
         System.out.println("\nTest Case 2: PCM SPM Both Disabled");
         System.out.println("--------------------------------------");
-        long time2 = readBlocks(filename);
+        clear();
+        configureMemory(DISABLED, DISABLED);
+
+        long[] access2 = readBlocks(filename);
+        long time2 = access2[0];
+        long energy2 = access2[1];
+        long staticEnergy2 = getStaticEnergy(time2);
+        long totalEnergy2 = energy2 + staticEnergy2;
+
+        System.out.println("\nMemory Simulation Statistics");
+        System.out.println("------------------------------");
         System.out.println("Total time required is: " + time2);
         System.out.println("PCMCount: " + PCMCount + " SPMCount: " + SPMCount + " CacheCount: " + CacheCount);
         System.out.println("PCMLoadCount: " + PCMLoadCount);
         System.out.println("PCMStoreCount: " + PCMStoreCount);
 
+        System.out.println("\nTotal energy required is: " + totalEnergy2);
+        System.out.println("Static energy required is: " + staticEnergy2);
+        System.out.println("Load/Store energy required is: " + energy2);
+
         System.out.println("\nComparision");
         System.out.println("--------------------------------------");
-        double percentage= ((double)time2-time1)*100/time2;
-        System.out.printf("Our Model is %.2f %% better than the original", percentage);
+        double timePercentage= ((double)time2-time1)*100/time2;
+        double energyPercentage = ((double)totalEnergy2-totalEnergy1)*100/totalEnergy2;
+        System.out.printf("Our Model is %.2f %% better than the original in time\n", timePercentage);
+        System.out.printf("Our Model is %.2f %% better than the original in energy", energyPercentage);
     }
 }
