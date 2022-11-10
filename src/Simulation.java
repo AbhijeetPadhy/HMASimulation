@@ -1,5 +1,4 @@
 import java.lang.*;
-import java.sql.SQLOutput;
 import java.util.*;
 import java.io.*;
 
@@ -23,7 +22,7 @@ public class Simulation {
     static boolean SPMState;
     static boolean ENABLED = true;
     static boolean DISABLED = false;
-    static String MODEL = "lbm";
+    static String MODEL = "matmul";
 
     static void load_blocks(String filename, boolean operation){
         try {
@@ -123,23 +122,26 @@ public class Simulation {
         }
         return new long[]{time, energy};
     }
-    private static long[] readBlocks(String filename){
+    private static long[] readBlocks(String filename) {
         long time = 0;
         long energy = 0;
+        long lineNumber = 0;
         try {
-            File myObj = new File(filename);
-            Scanner myReader = new Scanner(myObj);
-            while (myReader.hasNextLine()) {
-                String data = myReader.nextLine();
+            FileInputStream myObj = new FileInputStream(filename);
+            BufferedReader br = new BufferedReader(new InputStreamReader(myObj));
+            //System.out.println("Reading Line : ");
+            String line;
+            while((line = br.readLine()) != null){
+                String data = line;
                 char op = data.split(" ")[0].charAt(0);
                 boolean operation = (op == 'L')? LOAD : STORE;
                 long block = Long.parseLong(data.split(" ")[1].substring(2), 16)/64;
                 long[] access = blockAccess(block, operation);
                 time += access[0];
                 energy += access[1];
+                //System.out.print("\r" + lineNumber++);
             }
-            myReader.close();
-        } catch (FileNotFoundException e) {
+        } catch (IOException e) {
             System.out.println("An error occurred.");
             e.printStackTrace();
         }
@@ -208,8 +210,14 @@ public class Simulation {
         System.out.println("------------------------------------");
         configureMemory(ENABLED, ENABLED);
         allocate(true, true);
+        //String filename = "D:/output_matmul/output_matmul.txt";
         String filename = "input_files/"+MODEL+"/output"+"_"+MODEL+".txt";
+
+        long start1 = System.nanoTime();
         long[] access1 = readBlocks(filename);
+        long end1 = System.nanoTime();
+        System.out.println("Time Elapsed: " +((end1-start1)/1000000000) + " seconds");
+
         long time1 = access1[0];
         long energy1 = access1[1];
         long staticEnergy1 = getStaticEnergy(time1);
@@ -231,7 +239,11 @@ public class Simulation {
         clear();
         configureMemory(DISABLED, DISABLED);
 
+        long start2 = System.nanoTime();
         long[] access2 = readBlocks(filename);
+        long end2 = System.nanoTime();
+        System.out.println("Time Elapsed: " +((end2-start2)/1000000000) + " seconds");
+
         long time2 = access2[0];
         long energy2 = access2[1];
         long staticEnergy2 = getStaticEnergy(time2);
