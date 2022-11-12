@@ -1,3 +1,4 @@
+// https://www.geeksforgeeks.org/redirecting-system-out-println-output-to-a-file-in-java/
 import java.lang.*;
 import java.util.*;
 import java.io.*;
@@ -23,6 +24,9 @@ public class Simulation {
     static boolean ENABLED = true;
     static boolean DISABLED = false;
     static String MODEL = "matmul";
+    static int[][] configs = {{4096, 16, 512, 2048}, {8192, 32, 1024, 4096}, {16384, 64, 2048, 8192}};
+    static String[] models = {"lbm", "matmul", "fft"};
+    static double[] thresholds = {0.7, 0.8, 0.9};
 
     static void load_blocks(String filename, boolean operation){
         try {
@@ -157,13 +161,14 @@ public class Simulation {
         PCMLoadCount = 0;
         PCMStoreCount = 0;
     }
-    private static void configureMemory(boolean PCMState, boolean SPMState){
-        int sets_L1 = 64; // 128
-        int asso_L1 = 4;  // 4
-        int sets_L2 = 256;// 512
-        int asso_L2 = 8;  // 8
-        int PCM_size = 8192;
-        int SPM_size = 16;
+    private static void configureMemory(boolean PCMState, boolean SPMState, int configIndex){
+        int asso_L1 = 4;
+        int sets_L1 = configs[configIndex][2]/asso_L1; // 64 or 128
+        int asso_L2 = 8;
+        int sets_L2 = configs[configIndex][3]/asso_L2; // 256 or 512
+
+        int PCM_size = configs[configIndex][0];
+        int SPM_size = configs[configIndex][1];
 
         System.out.println("Memory Configurations");
         System.out.println("---------------------");
@@ -191,7 +196,16 @@ public class Simulation {
         power += L1.staticEnergy(time) + L2.staticEnergy(time);
         return power;
     }
-    public static void main(String[] args) {
+    private static void iteration(int modelIndex, int configIndex, int thresholdIndex) throws FileNotFoundException{
+        MODEL = models[modelIndex];
+        THRESHOLD = thresholds[thresholdIndex];
+
+        System.out.println("Iteration started for Model: "+ MODEL + " Config: " + (configIndex+1) + " and Threshold: " + THRESHOLD);
+        String resultFileName = "results/"+MODEL+"_"+"config"+(configIndex+1)+"_"+THRESHOLD+".txt";
+        PrintStream o = new PrintStream(new File(resultFileName));
+        PrintStream console = System.out;
+        System.setOut(o);
+
         System.out.println("Profile Configurations");
         System.out.println("----------------------");
         System.out.println("Model: " + MODEL);
@@ -208,7 +222,7 @@ public class Simulation {
 
         System.out.println("\nTest Case 1: PCM SPM Both Enabled");
         System.out.println("------------------------------------");
-        configureMemory(ENABLED, ENABLED);
+        configureMemory(ENABLED, ENABLED, configIndex);
         allocate(true, true);
         //String filename = "D:/output_matmul/output_matmul.txt";
         String filename = "input_files/"+MODEL+"/output"+"_"+MODEL+".txt";
@@ -237,7 +251,7 @@ public class Simulation {
         System.out.println("\nTest Case 2: PCM SPM Both Disabled");
         System.out.println("--------------------------------------");
         clear();
-        configureMemory(DISABLED, DISABLED);
+        configureMemory(DISABLED, DISABLED, configIndex);
 
         long start2 = System.nanoTime();
         long[] access2 = readBlocks(filename);
@@ -266,5 +280,23 @@ public class Simulation {
         double energyPercentage = ((double)totalEnergy2-totalEnergy1)*100/totalEnergy2;
         System.out.printf("Our Model is %.2f %% better than the original in time\n", timePercentage);
         System.out.printf("Our Model is %.2f %% better than the original in energy", energyPercentage);
+
+        System.setOut(console);
+        System.out.println("Iteration completed for Model: "+ MODEL + " Config: " + (configIndex+1) + " and Threshold: " + THRESHOLD);
+    }
+    public static void main(String[] args) {
+        for(int i=0;i<models.length;i++){
+            for(int j=0;j<configs.length;j++){
+                for(int k=0;k<thresholds.length;k++) {
+                    try {
+                        iteration(i, j, k);
+                    }
+                    catch(FileNotFoundException e){
+                        System.setOut(System.out);
+                        System.out.println("Error writing to file!");
+                    }
+                }
+            }
+        }
     }
 }
